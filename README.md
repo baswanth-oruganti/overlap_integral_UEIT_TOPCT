@@ -1,14 +1,8 @@
-# PUHF Wavefunction Overlap Integrals
+# SU(2) Orbital Rotations, Diradical Character, and QPEA Initial State Preparation
 
-**Repository for:** Oruganti et al., *J. Chem. Theory Comput.* (submitted)
+**Repository for:** *J. Chem. Theory Comput.* (submitted)
 
-Computes wavefunction overlap integrals $|\langle\Psi_\mathrm{CAS}|\Psi_\mathrm{trial}\rangle|^2$
-between a CASSCF reference wavefunction and RHF or spin-projected UHF (PUHF)
-trial wavefunctions. These overlaps are the QPEA success probabilities relevant
-to the UEIT/TOPCT framework developed in the paper.
-
-**Method:** Sugisaki, K. *et al.* *ACS Cent. Sci.* **2019**, *5*, 167–175.
-DOI: 10.1021/acscentsci.8b00788
+The central result: the CASSCF LUNO occupation number directly encodes the optimal SU(2) rotation angle and wavefunction coefficients with no numerical optimisation.
 
 ---
 
@@ -16,58 +10,73 @@ DOI: 10.1021/acscentsci.8b00788
 
 | File | Purpose |
 |---|---|
-| `overlap_integral.ipynb` | Executable notebook with key formulas and full code |
-| `puhf4.py` | Standalone Python script (same pipeline, command-line use) |
-| `README.md` | Full mathematical derivations (this file) |
+| `SU2_rotation_overlap.ipynb` | Executable notebook — full workflow |
+| `SU2_rotation_overlap.py` | Standalone script — command-line use |
+| `README.md` | Mathematical derivations (this file) |
 
 ---
 
 ## Requirements
 
 ```
-pyscf >= 2.0
-numpy >= 1.20
+pyscf >= 2.0   numpy >= 1.20   matplotlib >= 3.0
+scipy >= 1.7
 ```
-
-Install with: `pip install pyscf numpy`
+Install: `pip install pyscf numpy matplotlib scipy`
 
 ## Usage
 
-**Notebook:** open `overlap_integral.ipynb`, set `XYZ_FILE` in Section 1, run all cells.
+**Notebook:** set `XYZ_FILE`, `BASIS`, `N_CAS_ORB`, `N_CAS_EL` in Section 1, run all cells.
 
-**Script:** `python puhf4.py molecule.xyz`
+**Script:** `python SU2_rotation_overlap.py molecule.xyz [basis] [ncas] [nelec]`
 
-The XYZ file must be in standard format:
-```
-32
-comment line (ignored)
-C   x   y   z
-...
-```
+---
+
+## Key References
+
+| Method | Reference |
+|---|---|
+| Fukutome SU(2) rotations | Fukutome, H. *Int. J. Quantum Chem.* **1981**, *20*, 955 |
+| Löwdin singlet projection | Löwdin, P.-O. *Phys. Rev.* **1955**, *97*, 1509 |
+| Yamaguchi projection | Yamaguchi, K. *et al.* *Chem. Phys. Lett.* **1988**, *143*, 371 |
+| Sugisaki Eqs. 4, 6, 7 | Sugisaki, K. *et al.* *ACS Cent. Sci.* **2019**, *5*, 167 |
+| PySCF | Sun, Q. *et al.* *J. Chem. Phys.* **2020**, *153*, 024109 |
 
 ---
 
 ## Mathematical Derivations
 
+### Section 0 — Acronyms and Variable Definitions
+
+| Symbol | Definition |
+|---|---|
+| H | Highest Occupied Molecular Orbital (HOMO) |
+| L | Lowest Unoccupied Molecular Orbital (LUMO) |
+| CSS | Closed-shell singlet: $H^2L^0$, occupation string $\|20\rangle$ |
+| DX | Doubly-excited singlet: $H^0L^2$, occupation string $\|02\rangle$ |
+| OSS | Open-shell singlet: $\frac{1}{\sqrt{2}}(\|H^\alpha L^\beta\rangle - \|L^\alpha H^\beta\rangle)$, $S=0$ |
+| OST | Open-shell triplet: $M_S=0$ component $\frac{1}{\sqrt{2}}(\|H^\alpha L^\beta\rangle + \|L^\alpha H^\beta\rangle)$, $S=1$ |
+| Diradicaloid | Electronic configuration $H^1L^1$ ($\|11\rangle$): equal HOMO/LUMO occupation; gives rise to OSS and OST spin eigenstates |
+| 1-RDM | One-electron reduced density matrix |
+| CASSCF | Complete Active Space Self-Consistent Field |
+| $n_H$ | CASSCF natural orbital occupation of HOMO, $n_H \in [0,2]$ |
+| $n_L$ | CASSCF natural orbital occupation of LUNO, $n_L \in [0,1]$ for monodiradicals |
+| $y$ | Diradical character: $y = n_L = 2\sin^2\Theta \in [0,1]$ |
+| $\Theta$ | Hilbert-space SU(2) mixing angle: $\Theta = \arcsin\sqrt{n_L/2} \in [0°, 45°]$ |
+| $\theta$ | Bloch sphere polar angle: $\theta = 2\Theta \in [0°, 90°]$ |
+
+---
 ### Section 1 — The Overlap Integral and QPEA
 
-The quantum phase estimation algorithm (QPEA) estimates the energy eigenvalue
-$E_k$ of the electronic Hamiltonian $\hat{H}$ via the phase of
-$\langle\Psi_0|e^{-i\hat{H}t}|\Psi_0\rangle$. The probability of successfully
-collapsing to the eigenstate $|\Psi_k\rangle$ in a single run is
+The quantum phase estimation algorithm (QPEA) estimates the energy eigenvalue $E_k$ of the electronic Hamiltonian $\hat{H}$ by applying $e^{-i\hat{H}t}$ to an initial trial state $|\Psi_0\rangle$ and extracting the accumulated phase via an ancilla register. The probability of the measurement outcome corresponding to $E_k$ collapsing to the eigenstate $|\Psi_k\rangle$ in a single run is
 
-$$P_\mathrm{QPEA} = |\langle\Psi_k|\Psi_0\rangle|^2,$$
+$$
+P_\mathrm{QPEA} = |\langle\Psi_k|\Psi_0\rangle|^2,
+$$
 
-where $|\Psi_0\rangle$ is the initial trial wavefunction. A trial state with
-$|\langle\Psi_\mathrm{CAS}|\Psi_0\rangle|^2 \geq 0.9$ requires few repetitions
-for reliable phase extraction.
+where $|\Psi_0\rangle$ is the initial trial wavefunction. In practice, a trial state with $|\langle\Psi_\mathrm{FCI}|\Psi_0\rangle|^2 \geq 0.9$ requires few repetitions for reliable phase extraction (here approximated by the CASSCF wavefunction, $|\langle\Psi_\mathrm{CAS}|\Psi_0\rangle|^2 \geq 0.9$).
 
-The UEIT/TOPCT framework shows that a closed-shell RHF wavefunction residing
-in the aromatic sector $\mathcal{C}_+$ of the Bloch sphere has low overlap
-with a target state of diradicaloid character (antiaromatic sector
-$\mathcal{C}_-$), because symmetry-preserving unitary evolution cannot cross
-the HOMO–LUMO degeneracy locus $\Sigma$. The PUHF construction provides a
-route to higher overlap by introducing the necessary HOMO–LUMO mixing.
+The UEIT/TOPCT framework shows that a closed-shell RHF wavefunction residing in the aromatic sector of the Bloch sphere has low overlap with a target state of diradicaloid character, because symmetry-preserving unitary evolution cannot cross the HOMO–LUMO degeneracy locus $\Sigma$. The PUHF construction provides a route to higher overlap by introducing the necessary HOMO–LUMO mixing.
 
 ---
 
@@ -75,21 +84,43 @@ route to higher overlap by introducing the necessary HOMO–LUMO mixing.
 
 #### 2.1 Restricted Hartree–Fock
 
-The RHF wavefunction enforces $\mathbf{C}^\alpha = \mathbf{C}^\beta$
-(identical spatial orbitals for both spins). The MO coefficient matrix
-satisfies the Roothaan–Hall equations
+The RHF wavefunction enforces $\mathbf{C}^\alpha = \mathbf{C}^\beta$(identical spatial orbitals for both spins). The MO coefficient matrix $\mathbf{C}$ satisfies the Roothaan–Hall equations
 
-$$\mathbf{F}\mathbf{C} = \mathbf{S}\mathbf{C}\boldsymbol\varepsilon, \qquad
-\mathbf{C}^\top\mathbf{S}\mathbf{C} = \mathbf{I},$$
-
-where $\mathbf{F}$ is the Fock matrix, $\mathbf{S}$ the AO overlap matrix,
-and $\boldsymbol\varepsilon$ the diagonal matrix of orbital energies.
+$$\mathbf{F}\mathbf{C} = \mathbf{S}\mathbf{C}\boldsymbol\varepsilon, \qquad \mathbf{C}^\top\mathbf{S}\mathbf{C} = \mathbf{I},$$ where $\mathbf{F}$ is the Fock matrix, $\mathbf{S}$ the AO overlap matrix, and $\boldsymbol\varepsilon$ the diagonal matrix of orbital energies.
 
 #### 2.2 Broken-Symmetry Initial Guess
 
-A broken-symmetry starting point is generated by applying **opposite
-HOMO–LUMO rotations** to the $\alpha$ and $\beta$ spin-orbital sets.
-Let $\varphi_H, \varphi_L$ be the RHF HOMO and LUMO. The rotated orbitals are:
+A broken-symmetry starting point is generated by applying **opposite HOMO–LUMO rotations** to the $\alpha$ and $\beta$ spin-orbital sets.Let $\varphi_H, \varphi_L$ be the RHF HOMO and LUMO. Orbital rotations can be performed as
+$$
+\begin{bmatrix}
+\varphi_H^{\alpha} \\
+\varphi_L^{\alpha} \\
+\end{bmatrix} 
+= \begin{bmatrix} 
+\cos\theta & \sin\theta  \\
+-\sin\theta & \cos\theta  \\
+\end{bmatrix}
+\begin{bmatrix}
+\varphi_H \\
+\varphi_L \\
+\end{bmatrix}
+$$
+
+$$
+\begin{bmatrix}
+\varphi_H^{\beta} \\
+\varphi_L^{\beta} \\
+\end{bmatrix} 
+= \begin{bmatrix} 
+\cos\theta & -\sin\theta  \\
+\sin\theta & \cos\theta  \\
+\end{bmatrix}
+\begin{bmatrix}
+\varphi_H \\
+\varphi_L \\
+\end{bmatrix}
+$$
+to obtain
 
 $$\varphi_H^\alpha = \cos\theta\,\varphi_H + \sin\theta\,\varphi_L, \qquad
 \varphi_L^\alpha = -\sin\theta\,\varphi_H + \cos\theta\,\varphi_L,$$
@@ -97,76 +128,130 @@ $$\varphi_H^\alpha = \cos\theta\,\varphi_H + \sin\theta\,\varphi_L, \qquad
 $$\varphi_H^\beta  = \cos\theta\,\varphi_H - \sin\theta\,\varphi_L, \qquad
 \varphi_L^\beta  = \sin\theta\,\varphi_H + \cos\theta\,\varphi_L.$$
 
-The opposite sign for $\beta$ is essential: it breaks spin symmetry so that
-$\alpha$ electrons are localised preferentially on one lobe of the frontier
-orbital and $\beta$ on the other, mimicking the two-determinant open-shell
-singlet. At $\theta = \pi/4$, HOMO–LUMO mixing is maximised (50/50 character).
+The opposite sign for $\beta$ is essential: it breaks spin symmetry so that $\alpha$ electrons are localised preferentially on one lobe of the frontier orbital and $\beta$ on the other, mimicking the two-determinant OSS. At $\theta = \pi/4$, HOMO–LUMO mixing is maximized (50/50 character). 
 
-Both rotations are orthogonal: $R_\pm^\top R_\pm = I$. The density matrices
-$\mathbf{P}^\sigma = \mathbf{C}^\sigma_\mathrm{occ}(\mathbf{C}^\sigma_\mathrm{occ})^\top$
-built from the rotated coefficients seed a Newton–DIIS UHF convergence to the
-broken-symmetry solution.
+Both rotations are orthogonal: $R_\pm^\top R_\pm = I$. The density matrices $\mathbf{P}^\sigma = \mathbf{C}^\sigma_\mathrm{occ}(\mathbf{C}^\sigma_\mathrm{occ})^\top$ built from the rotated coefficients seed a Newton–DIIS UHF convergence to the broken-symmetry solution.
+
 
 ---
 
-### Section 3 — Natural Orbital Analysis
+
+### Section 3 — Natural Orbital Analysis and Diradical Character
 
 #### 3.1 One-Particle Reduced Density Matrix
 
-The **spin-summed 1-RDM** in the AO basis is the sum of spin-resolved density matrices:
+The spin-summed 1-RDM is defined in second quantisation as
 
-$$\boldsymbol\gamma = \mathbf{P}^\alpha + \mathbf{P}^\beta,
-\qquad \mathbf{P}^\sigma = \mathbf{C}^\sigma_\mathrm{occ}(\mathbf{C}^\sigma_\mathrm{occ})^\top.$$
+$$\gamma_{pq} = \langle\Psi|\hat{a}_q^\dagger\hat{a}_p|\Psi\rangle,$$
 
-#### 3.2 Löwdin Symmetric Orthogonalisation
+and evaluated in the AO basis as the sum of spin-resolved density matrices:
 
-To diagonalise $\boldsymbol\gamma$ in an orthogonal basis, first decompose
-the AO overlap matrix:
+$$
+\boldsymbol\gamma = \mathbf{P}^\alpha + \mathbf{P}^\beta.
+$$
+
+
+#### 3.2 Natural Orbitals via Löwdin Orthogonalisation
+
+Because the AO basis is non-orthogonal, $\boldsymbol\gamma$ cannot be diagonalised directly. First decompose the symmetric AO overlap matrix:
 
 $$\mathbf{S} = \mathbf{U}\boldsymbol\Lambda\mathbf{U}^\top, \qquad
-\boldsymbol\Lambda = \mathrm{diag}(\lambda_1,\ldots), \quad \lambda_i > 0.$$
+\boldsymbol\Lambda = \mathrm{diag}(\lambda_1,\ldots),\quad \lambda_i > 0,$$
 
-Construct the symmetric square root and its inverse:
+and construct its symmetric square root and inverse:
 
-$$\mathbf{S}^{1/2} = \mathbf{U}\boldsymbol\Lambda^{1/2}\mathbf{U}^\top, \qquad
+$$\mathbf{S}^{1/2} = \mathbf{U}\boldsymbol\Lambda^{1/2}\mathbf{U}^\top,
+\qquad
 \mathbf{S}^{-1/2} = \mathbf{U}\boldsymbol\Lambda^{-1/2}\mathbf{U}^\top.$$
 
-The **orthogonalised 1-RDM** is
+The Löwdin-orthogonalised 1-RDM is
 
 $$\tilde{\boldsymbol\gamma} = \mathbf{S}^{1/2}\boldsymbol\gamma\mathbf{S}^{1/2}.$$
 
-Since $\tilde{\boldsymbol\gamma}$ is real symmetric, it diagonalises via an
-orthogonal matrix $\tilde{\mathbf{C}}$:
+Since $\tilde{\boldsymbol\gamma}$ is real symmetric it diagonalises via an orthogonal matrix $\tilde{\mathbf{C}}$:
 
-$$\tilde{\boldsymbol\gamma} = \tilde{\mathbf{C}}\,\mathrm{diag}(n_1,\ldots)\,\tilde{\mathbf{C}}^\top.$$
+$$\tilde{\boldsymbol\gamma} =
+\tilde{\mathbf{C}}\,\mathrm{diag}(n_1,\ldots)\,\tilde{\mathbf{C}}^\top.$$
 
-#### 3.3 Natural Orbitals
-
-Back-transforming to the AO basis:
+Back-transforming to the AO basis gives the natural orbital coefficient matrix:
 
 $$\mathbf{C}_\mathrm{NO} = \mathbf{S}^{-1/2}\tilde{\mathbf{C}}.$$
 
-The natural orbital coefficient matrix satisfies
-$\mathbf{C}_\mathrm{NO}^\top\mathbf{S}\mathbf{C}_\mathrm{NO} = \mathbf{I}$
-($\mathbf{S}$-orthonormality) and reconstructs the 1-RDM as
-$\boldsymbol\gamma = \mathbf{C}_\mathrm{NO}\,\mathrm{diag}(n_i)\,\mathbf{C}_\mathrm{NO}^\top$.
-The eigenvalues $\{n_i\}$ are the **natural orbital occupation numbers (NOONs)**,
-$n_i \in [0,2]$.
+This satisfies $\mathbf{C}_\mathrm{NO}^\top\mathbf{S}\mathbf{C}_\mathrm{NO} = \mathbf{I}$ and reconstructs the 1-RDM as
+$$
+\boldsymbol\gamma =
+\mathbf{C}_\mathrm{NO}\,\mathrm{diag}(n_i)\,\mathbf{C}_\mathrm{NO}^\top
+$$.
+The eigenvalues $\{n_i\}$ are the natural orbital occupation numbers (NOONs), $n_i \in [0,2]$.
 
-#### 3.4 Diradical Character (Sugisaki 2019, Eq. 4)
 
-The raw UHF diradical character is $y_i^\mathrm{UHF} = n_{\mathrm{LUNO}+i}$.
-This overestimates true diradical character due to spin contamination.
-The spin-projected value is
+#### 3.3 NOONs of the SU(2)-Rotated State
 
-$$y_i^\mathrm{PUHF} = \frac{n_{\mathrm{LUNO}+i} - 2(1 - n_{\mathrm{LUNO}+i})}
-{1 + (1 - n_{\mathrm{LUNO}+i})^2},$$
+The broken-symmetry UHF state obtained from the $SU(2)$ rotation at angle $\Theta$ has occupied frontier MOs:
 
-clipped to $[0,1]$. The formula is physically meaningful only when
-$n_{\mathrm{LUNO}+i} > 2/3$; below this threshold the numerator is negative
-and the value is clipped to 0.
+$$
+\phi_H^\alpha = \cos\Theta\,|H\rangle + \sin\Theta\,|L\rangle, \\
+\phi_H^\beta  = \cos\Theta\,|H\rangle - \sin\Theta\,|L\rangle.
+$$
+
+The opposite sign on the $\beta$ orbital is the defining feature of the $SU(2)$ rotation. Computing the spin-summed 1-RDM elements in the $\{H, L\}$ subspace directly from the definition
+$$
+\gamma_{pq} = \langle\phi_p^\alpha|\phi_q^\alpha\rangle +
+\langle\phi_p^\beta|\phi_q^\beta\rangle,
+$$
+
+$$
+\gamma_{HH} = \cos^2\Theta + \cos^2\Theta = 2\cos^2\Theta,
+$$
+
+$$
+\gamma_{LL} = \sin^2\Theta + \sin^2\Theta = 2\sin^2\Theta,
+$$
+
+$$
+\gamma_{HL} = \gamma_{LH} = \cos\Theta \sin\Theta  + \cos\Theta (-\sin\Theta) = 0.
+$$
+
+The off-diagonal vanishes exactly because the opposite signs in the $\alpha$ and $\beta$ rotations cancel. The 1-RDM is therefore already diagonal in the $\{H, L\}$ basis, and the NOONs are:
+
+$$
+\boxed{n_H = 2\cos^2\Theta, \qquad n_L = 2\sin^2\Theta.}
+$$
+
+Inverting the second relation gives the **analytic rotation angle** directly from the CASSCF LUNO occupation:
+
+$$\boxed{\Theta = sin^{-1}\sqrt{\frac{n_L}{2}}.}$$
+
+No numerical optimisation over $\Theta$ is required.
+
+
+
+#### 3.4 Diradical Character and Wavefunction Coefficients
+
+The **diradical character** $y$ is the standard measure of open-shell character in singlet diradicals, defined as the CASSCF LUNO occupation number:
+
+$$
+y = n_L \in [0, 1].
+$$
+
+$y = 0$: pure closed-shell singlet (north pole of the Bloch sphere).
+$y = 1$: fully diradical state (equatorial locus $\Sigma$, $\Theta = 45°$).
+
+From Section 3.3, $n_L = 2\sin^2\Theta$, so the complete chain of relations is:
+
+$$
+n_L = 2\sin^2\Theta \implies y = n_L \quad \implies
+c_\mathrm{DX} = \sin\Theta, \quad c_\mathrm{CSS} = \cos\Theta.$$
+
+The two-configuration trial wavefunction is therefore:
+
+$$
+|\Psi_{\text{trial}}\rangle =
+\cos\Theta\,|\Psi_\mathrm{CSS}\rangle - \sin\Theta\,|\Psi_\mathrm{DX}\rangle.
+$$
 
 ---
+
 
 ### Section 4 — CASSCF Reference Wavefunction
 
@@ -174,8 +259,8 @@ The CASSCF wavefunction is:
 
 $$|\Psi_\mathrm{CAS}\rangle = \sum_I c_I |D_I\rangle, \qquad \sum_I c_I^2 = 1,$$
 
-where $I = (I_\alpha, I_\beta)$ labels alpha/beta occupation strings over the
-$n_\mathrm{orb}$ active orbitals. Orbitals partition into:
+where $I = (I_\alpha, I_\beta)$ labels alpha/beta occupation strings over the $n_\mathrm{orb}$ active orbitals. Orbitals partition into:
+
 - **Core** ($n_\mathrm{core}$ orbitals): doubly occupied in all $|D_I\rangle$
 - **Active** ($n_\mathrm{orb}$ orbitals): variable occupation indexed by CI strings
 - **Virtual**: unoccupied in all CI strings
@@ -188,8 +273,7 @@ In PySCF, $c_I$ is stored in `mc.ci[ia, ib]`.
 
 #### 5.1 Derivation
 
-The overlap between $|\Psi_\mathrm{CAS}\rangle$ and a single Slater
-determinant $|\Phi\rangle$ is (Sugisaki 2019, Section 2.3):
+The overlap between $|\Psi_\mathrm{CAS}\rangle$ and a single Slater determinant $|\Phi\rangle$ expands as:
 
 $$\langle\Psi_\mathrm{CAS}|\Phi\rangle
 = \sum_I c_I\,\langle D_I|\Phi\rangle
@@ -197,144 +281,292 @@ $$\langle\Psi_\mathrm{CAS}|\Phi\rangle
 \det\!\bigl(\mathbf{M}^\alpha[\mathbf{f}^\alpha_I,:]\bigr)\cdot
 \det\!\bigl(\mathbf{M}^\beta[\mathbf{f}^\beta_I,:]\bigr).$$
 
-**Overlap matrices.** For spin $\sigma \in \{\alpha,\beta\}$, define
+**Overlap matrix.** For spin $\sigma \in \{\alpha,\beta\}$, define the
+rectangular matrix:
 
 $$\mathbf{M}^\sigma = \mathbf{C}_\mathrm{CAS}^\top\,\mathbf{S}_\mathrm{AO}\,
-\mathbf{C}^\sigma_{\Phi,\mathrm{occ}} \;\in\; \mathbb{R}^{N_\mathrm{MO}^\mathrm{CAS}\times n_\sigma}.$$
+\mathbf{C}^\sigma_{\Phi,\mathrm{occ}}
+\;\in\; \mathbb{R}^{(n_\mathrm{core}+n_\mathrm{cas})\times n_\sigma},$$
 
-The element $\mathbf{M}^\sigma_{pj} = \langle\phi_p^\mathrm{CAS}|\psi_j^\sigma\rangle$.
-The AO metric $\mathbf{S}_\mathrm{AO}$ is included because the CAS and trial
-orbital sets are not in general mutually orthogonal.
+where $n_\sigma$ is the number of occupied $\sigma$-spin orbitals in
+$|\Phi\rangle$. The element $M^\sigma_{pj} =
+\langle\phi_p^\mathrm{CAS}|\psi_j^{\sigma,\Phi}\rangle$ is the
+one-electron overlap between the $p$-th CAS MO and the $j$-th
+occupied MO of $|\Phi\rangle$. The AO metric $\mathbf{S}_\mathrm{AO}$
+is essential because the CAS and trial orbital sets are not in general
+mutually orthogonal.
 
-**Row selection.** For CI string $I_\alpha$, let $\mathbf{f}^\alpha_I$ be the
-index list: core orbital indices $(0,\ldots,n_\mathrm{core}-1)$ plus active
-orbital indices selected by $I_\alpha$ (shifted by $n_\mathrm{core}$).
-The submatrix $\mathbf{M}^\alpha[\mathbf{f}^\alpha_I,:]$ is
-$n_\alpha \times n_\alpha$ (square) and its determinant equals
-$\langle D_I^\alpha|\Phi^\alpha\rangle$.
+**Row index list.** For CI string $I_\alpha$, the row index list
+$\mathbf{f}^\alpha_I$ is constructed as:
 
-**Factorisation.** The overlap factorises into $\alpha$ and $\beta$ parts
-because Slater determinants are antisymmetrised products of spin-orbitals and
-the $\alpha/\beta$ Fock spaces are orthogonal.
+$$\mathbf{f}^\alpha_I = \underbrace{[0, 1, \ldots, n_\mathrm{core}-1]}_\text{core indices}
+\;\cup\;
+\underbrace{[n_\mathrm{core} + i \;:\; i \in I_\alpha]}_\text{active indices from string},$$
+
+giving an index list of length $n_\alpha = n_\mathrm{core} + |I_\alpha|$.
+The submatrix $\mathbf{M}^\alpha[\mathbf{f}^\alpha_I,:]$ is square
+($n_\alpha \times n_\alpha$) and its determinant equals
+$\langle D_I^\alpha | \Phi^\alpha \rangle$.
+
+**Why the overlap factorises.** A Slater determinant is an
+antisymmetrised product of spin-orbitals. Since $\alpha$ and $\beta$
+spin functions are orthogonal, the overlap of two Slater determinants
+factorises exactly into an $\alpha$ determinant times a $\beta$
+determinant. No approximation is involved.
+
+**Why only $\mathbf{S}_\mathrm{AO}$ is needed.** The overlap
+$\langle\Psi_1|\Psi_2\rangle$ is a metric computation — it involves no
+Hamiltonian matrix elements. Therefore no kinetic energy, nuclear
+attraction, or electron repulsion integrals are required. Only the
+one-electron AO overlap matrix $\mathbf{S}_\mathrm{AO}$ enters, making
+the method computationally inexpensive ($\mathcal{O}(N^2)$ in the
+number of basis functions) and independent of the quantum chemistry
+program used.
 
 #### 5.2 Sanity Check
 
-Passing the CASSCF MOs themselves as the trial wavefunction
+Passing the CASSCF MOs as the trial wavefunction
 ($\mathbf{C}^\alpha = \mathbf{C}^\beta = \mathbf{C}_\mathrm{CAS}$):
 
-- $\mathbf{M}^\sigma = \mathbf{C}_\mathrm{CAS}^\top\mathbf{S}\mathbf{C}_\mathrm{CAS} = \mathbf{I}$ (CASSCF MOs are orthonormal).
-- For the reference determinant (HF configuration $I_0$): $\det(\mathbf{I}[\mathbf{f}_{I_0},:]) = 1$.
-- For all other CI strings: the selected rows include a column beyond the first $n_\mathrm{occ}$ columns, giving $\det = 0$.
-- Therefore: $\langle\Psi_\mathrm{CAS}|\mathbf{C}_\mathrm{CAS}\rangle = c_0$.
+- $\mathbf{M}^\sigma = \mathbf{C}_\mathrm{CAS}^\top
+  \mathbf{S}_\mathrm{AO}\mathbf{C}_\mathrm{CAS} = \mathbf{I}$
+  (CASSCF MOs are $\mathbf{S}$-orthonormal by construction).
+- For the reference HF string $I_0$: all selected rows are standard
+  basis vectors, so $\det(\mathbf{I}[\mathbf{f}_{I_0},:]) = 1$.
+- For any other CI string $I \neq I_0$: the row selection includes
+  an active orbital index not occupied in $|\Phi\rangle$, pulling in
+  a zero column, so $\det = 0$.
+- Therefore: $\langle\Psi_\mathrm{CAS}|\mathbf{C}_\mathrm{CAS}\rangle
+  = c_0$ (the leading CI coefficient), **not** 1.0.
 
-This must return $c_0$, not 1.0, and provides a direct numerical verification
-of the implementation.
+This sanity check provides a direct numerical verification of the
+implementation and must be passed before any other overlaps are
+meaningful.
 
 ---
 
-### Section 6 — Spin Projection and PUHF Overlap
+### Section 6 — Spin Decomposition and PUHF Overlap
 
-#### 6.1 Why Spin Projection Is Needed
+#### 6.1 Spin Content of the BS-UHF Determinant
 
-The BS-UHF wavefunction $|\Phi\rangle$ is not an eigenfunction of $\hat{S}^2$:
+The broken-symmetry UHF determinant $|\Phi(\Theta)\rangle$ produced
+by the $SU(2)$ rotation is not a spin eigenstate. Its exact spin
+decomposition in the $\{H, L\}$ frontier subspace is (derived in the
+accompanying PDF):
 
-$$|\Phi\rangle = c_S|S=0\rangle + c_T|S=1\rangle + \cdots$$
+$$|\Phi(\Theta)\rangle =
+\cos^2\!\Theta\,|D_\mathrm{CS}\rangle
+- \sin^2\!\Theta\,|D_\mathrm{HL}\rangle
+- \frac{\sin 2\Theta}{\sqrt{2}}\,|\mathrm{OS}\rangle,$$
 
-Spin projection extracts the $S=0$ (singlet) component.
+where $|D_\mathrm{CS}\rangle = \hat{a}_{H\alpha}^\dagger
+\hat{a}_{H\beta}^\dagger|0\rangle$ (CSS, $S=0$),
+$|D_\mathrm{HL}\rangle = \hat{a}_{L\alpha}^\dagger
+\hat{a}_{L\beta}^\dagger|0\rangle$ (DX, $S=0$), and
+$|\mathrm{OS}\rangle = \frac{1}{\sqrt{2}}(\hat{a}_{H\alpha}^\dagger
+\hat{a}_{L\beta}^\dagger - \hat{a}_{L\alpha}^\dagger
+\hat{a}_{H\beta}^\dagger)|0\rangle$ (OSS, $S=0$).
+Notably, **no triplet component is present**. The spin expectation
+value is $\langle\hat{S}^2\rangle = \sin^2(2\Theta)$, which comes
+entirely from the OSS term.
 
-#### 6.2 Löwdin Singlet Projection
+#### 6.2 Löwdin Singlet Projection (PUHF)
 
-The singlet spin-projection operator applied to $|\Phi\rangle$ gives
-(Löwdin 1955; Yamaguchi 1975):
+The Löwdin first-order spin projection (Löwdin, *Phys. Rev.* **1955**,
+*97*, 1509) applied to $|\Phi\rangle$ gives:
 
-$$|\Psi_\mathrm{PUHF}\rangle = \hat{P}_{S=0}|\Phi\rangle
-\approx \mathcal{N}\bigl(|\Phi\rangle + |\tilde\Phi\rangle\bigr),$$
+$$|\Psi_\mathrm{PUHF}\rangle =
+\mathcal{N}\bigl(|\Phi\rangle + |\tilde\Phi\rangle\bigr),$$
 
-where $|\tilde\Phi\rangle$ is obtained from $|\Phi\rangle$ by
-**exchanging all $\alpha$ and $\beta$ MOs**.
+where $|\tilde\Phi\rangle$ is obtained by **exchanging all $\alpha$
+and $\beta$ MO coefficient matrices**:
+$\mathbf{C}^\alpha \leftrightarrow \mathbf{C}^\beta$.
 
-**Why the swap projects onto the singlet.** Under $\alpha\leftrightarrow\beta$
-exchange, the triplet component ($S=1$, $M_S=0$) changes sign while the
-singlet ($S=0$) component does not. Therefore $|\Phi\rangle + |\tilde\Phi\rangle$
-cancels the triplet and doubles the singlet contribution.
+**Why the OSS term cancels exactly.** Under $\alpha\leftrightarrow\beta$
+exchange:
 
-**Approximation note.** This two-determinant form is the first-order Löwdin
-projection, which is exact when only the $M_S=0$ triplet component contaminates
-the wavefunction (Sugisaki 2019, Section 2.2).
+- $|D_\mathrm{CS}\rangle$ and $|D_\mathrm{HL}\rangle$ are
+  **symmetric** (both electrons in the same spatial orbital) —
+  they are unchanged.
+- $|\mathrm{OS}\rangle = \frac{1}{\sqrt{2}}(|H^\alpha L^\beta\rangle
+  - |L^\alpha H^\beta\rangle)$ is **antisymmetric** — swapping
+  $\alpha\leftrightarrow\beta$ gives $-|\mathrm{OS}\rangle$.
 
-#### 6.3 Normalisation Constant
+Therefore:
 
-Using $\langle\Phi|\Phi\rangle = \langle\tilde\Phi|\tilde\Phi\rangle = 1$
-and defining the swap overlap $S_\mathrm{swap} \equiv \langle\Phi|\tilde\Phi\rangle$:
+$$|\Phi\rangle + |\tilde\Phi\rangle =
+2\cos^2\!\Theta\,|D_\mathrm{CS}\rangle
+- 2\sin^2\!\Theta\,|D_\mathrm{HL}\rangle + 0 \cdot |\mathrm{OS}\rangle.$$
 
-$$\langle\Psi_\mathrm{PUHF}|\Psi_\mathrm{PUHF}\rangle
-= \mathcal{N}^2(2 + 2S_\mathrm{swap}) = 1
-\;\Longrightarrow\;
-\mathcal{N} = \frac{1}{\sqrt{2 + 2S_\mathrm{swap}}}.$$
+The OSS term cancels exactly. The PUHF wavefunction is a pure
+$S=0$ state living entirely in the $\{|D_\mathrm{CS}\rangle,
+|D_\mathrm{HL}\rangle\}$ subspace — on the Bloch sphere.
 
-The swap overlap between two Slater determinants factorises by spin:
+#### 6.3 Normalisation
 
-$$\langle\Phi|\tilde\Phi\rangle
-= \det(\mathbf{S}^\alpha)\cdot\det(\mathbf{S}^\beta), \qquad
-\mathbf{S}^\alpha_{ij} = (\mathbf{C}^\alpha_\mathrm{occ})^\top\mathbf{S}_\mathrm{AO}\,\mathbf{C}^\beta_\mathrm{occ},$$
+Using $\langle\Phi|\Phi\rangle =
+\langle\tilde\Phi|\tilde\Phi\rangle = 1$ and defining the
+swap overlap $S_\mathrm{swap} \equiv
+\langle\Phi|\tilde\Phi\rangle$:
 
-with $\mathbf{C}^\alpha_2 = \mathbf{C}^\beta$, $\mathbf{C}^\beta_2 = \mathbf{C}^\alpha$
-for $\tilde\Phi$.
+$$\mathcal{N} = \frac{1}{\sqrt{2 + 2S_\mathrm{swap}}}.$$
+
+The swap overlap factorises by spin:
+
+$$S_\mathrm{swap} = \langle\Phi|\tilde\Phi\rangle =
+\det\!\bigl((\mathbf{C}^\alpha_\mathrm{occ})^\top
+\mathbf{S}_\mathrm{AO}\,\mathbf{C}^\beta_\mathrm{occ}\bigr)
+\cdot
+\det\!\bigl((\mathbf{C}^\beta_\mathrm{occ})^\top
+\mathbf{S}_\mathrm{AO}\,\mathbf{C}^\alpha_\mathrm{occ}\bigr).$$
+
+Note that when $|\Phi\rangle$ is the RHF wavefunction
+($\mathbf{C}^\alpha = \mathbf{C}^\beta$), $S_\mathrm{swap} = 1$
+and $\mathcal{N} = 1/2$, so the PUHF reduces to RHF as expected.
 
 #### 6.4 PUHF–CASSCF Overlap
 
-Combining all terms (Sugisaki 2019, Eqs. 6–7):
+The complete PUHF overlap with the CASSCF reference is:
 
 $$\boxed{
-\langle\Psi_\mathrm{CAS}|\Psi_\mathrm{PUHF}\rangle
-= \frac{\langle\Psi_\mathrm{CAS}|\Phi\rangle + \langle\Psi_\mathrm{CAS}|\tilde\Phi\rangle}
-       {\sqrt{2 + 2S_\mathrm{swap}}}
+|\langle\Psi_\mathrm{CAS}|\Psi_\mathrm{PUHF}\rangle|
+= \frac{|\langle\Psi_\mathrm{CAS}|\Phi\rangle
+       + \langle\Psi_\mathrm{CAS}|\tilde\Phi\rangle|}
+       {\sqrt{2 + 2S_\mathrm{swap}}}.
 }$$
 
-Each numerator term is computed by the Sugisaki determinant expansion (Section 5).
-An absolute value is taken for the physical quantity because the global
-wavefunction phase is arbitrary. The QPEA success probability is
-$P_\mathrm{QPEA} = |\langle\Psi_\mathrm{CAS}|\Psi_\mathrm{PUHF}\rangle|^2$.
+Each numerator term is evaluated by the determinantal expansion of
+Section 5. The absolute value is taken because the global wavefunction
+phase is arbitrary. The QPEA success probability is:
+
+$$P_\mathrm{QPEA} = |\langle\Psi_\mathrm{CAS}|
+\Psi_\mathrm{PUHF}\rangle|^2.$$
+
 
 ---
 
-### Section 7 — Connection to UEIT/TOPCT
 
-The Bloch sphere picture of the paper maps directly onto the overlap results:
+### Section 7 — Hybrid Two-Configuration Wavefunction
 
-| Species | $n_\mathrm{LUNO}$ | Sector | RHF overlap | PUHF advantage |
-|---|---|---|---|---|
-| Aromatic TS | ~0.1 | $\mathcal{C}_+$ | High (~0.91) | Minimal |
-| Antiaromatic TS | ~0.5–0.7 | near/across $\Sigma$ | Low (~0.72) | Significant |
-| Stabilised AA TS | ~0.5–0.6 | near $\Sigma$ | Moderate (~0.77) | Marginal |
+#### 7.1 Motivation
 
-- The LUNO occupation $n_\mathrm{LUNO}$ measures proximity to the HOMO–LUMO
-  degeneracy locus $\Sigma$ (equatorial circle of the Bloch sphere).
-- When $n_\mathrm{LUNO} > 2/3$, the system has crossed into the antiaromatic
-  sector $\mathcal{C}_-$ and PUHF substantially outperforms RHF.
-- Energetic stabilisation (aromatic $\pi$-linker) reduces $n_\mathrm{LUNO}$
-  but does not remove the topological obstruction at $\Sigma$; PUHF advantage
-  diminishes accordingly.
-- For quantum computing simulations (strictly unitary dynamics), topological
-  accessibility is the binding constraint — not energetic accessibility.
+The PUHF wavefunction of Section 6 is obtained by spin-projecting the
+BS-UHF determinant $|\Phi(\Theta)\rangle$. While this removes the OSS
+contamination, it is an indirect route: the BS-UHF determinant is
+constructed first, then projected. The resulting PUHF has CSS and DX
+coefficients $\cos^2\Theta$ and $\sin^2\Theta$ (from the spin
+decomposition, see Section 6.1), which are not the same as the
+optimal values dictated by the CASSCF 1-RDM.
 
----
+A cleaner and more accurate approach is to **bypass the BS-UHF
+determinant entirely** and construct the two-configuration singlet
+wavefunction directly from the CASSCF natural orbital occupations.
+This is the hybrid wavefunction tested in this work.
 
-## Diagnostics
+#### 7.2 Construction
 
-| Output | Ideal value | Warning threshold |
+The hybrid wavefunction is:
+
+$$|\mathrm{Hybrid}\rangle =
+\cos\Theta\,|D_\mathrm{CS}\rangle - \sin\Theta\,|D_\mathrm{HL}\rangle,$$
+
+where:
+
+- $|D_\mathrm{CS}\rangle$: closed-shell singlet, HOMO doubly occupied
+  ($H^2L^0$). Built from the RHF MO coefficients unchanged.
+- $|D_\mathrm{HL}\rangle$: doubly-excited singlet, LUMO doubly
+  occupied ($H^0L^2$). Built by replacing the HOMO column with the
+  LUMO column in **both** $\alpha$ and $\beta$ MO coefficient
+  matrices.
+- $\Theta = \arcsin\sqrt{n_L/2}$: the rotation angle obtained
+  analytically from the CASSCF LUNO occupation $n_L$.
+
+The coefficients $\cos\Theta$ and $\sin\Theta$ follow directly from
+the CASSCF 1-RDM chain derived in Section 3:
+
+$$n_L = 2\sin^2\Theta \implies c_\mathrm{DX} = \sin\Theta,
+\quad c_\mathrm{CS} = \cos\Theta.$$
+
+#### 7.3 Why No Spin Projection Is Needed
+
+Both $|D_\mathrm{CS}\rangle$ and $|D_\mathrm{HL}\rangle$ are
+closed-shell singlets ($S=0$) by construction. Their linear
+combination is therefore an exact $S=0$ eigenstate:
+
+$$\hat{S}^2|\mathrm{Hybrid}\rangle = 0.$$
+
+The OSS component that contaminates the BS-UHF determinant (Section
+6.1) never appears here. Spin projection is not needed because the
+wavefunction is built directly in the $\{|D_\mathrm{CS}\rangle,
+|D_\mathrm{HL}\rangle\}$ subspace — the Bloch sphere — rather than
+being projected onto it.
+
+#### 7.4 Hybrid–CASSCF Overlap
+
+The overlap is a direct application of the determinantal expansion of
+Section 5:
+
+$$
+|\langle\Psi_\mathrm{CAS}|\mathrm{Hybrid}\rangle|
+= |\cos\Theta\,\langle\Psi_\mathrm{CAS}|D_\mathrm{CS}\rangle
+- \sin\Theta\,\langle\Psi_\mathrm{CAS}|D_\mathrm{HL}\rangle|.
+$$
+
+Each term requires one call to `compute_overlap`. No normalisation
+denominator is needed because $|\mathrm{Hybrid}\rangle$ is already
+normalised: $\cos^2\Theta + \sin^2\Theta = 1$.
+
+
+#### 7.5 Comparison with Rotated PUHF
+
+Both the rotated PUHF and the hybrid use the same $\Theta$ derived analytically from the CASSCF LUNO occupation $n_L$, and both produce the same wavefunction:
+
+$$
+|\Psi\rangle = \cos\Theta\ |D_\mathrm{CS} \rangle
+- \sin\Theta\,|D_\mathrm{HL}\rangle.
+$$
+
+This follows directly from the coefficient formula in the code:
+
+$$y = 2\sin^2\Theta = n_L, \qquad
+c_\mathrm{CS} = \sqrt{1 - y/2} = \sqrt{1 - \sin^2\Theta} = \cos\Theta,
+\qquad
+c_\mathrm{DX} = \sqrt{y/2} = \sqrt{\sin^2\Theta} = \sin\Theta.$$
+
+The two approaches therefore represent two different computational
+routes to the same wavefunction:
+
+| Approach | Route | $S=0$? |
 |---|---|---|
-| `<S2>(UHF)` | ~1.0 for open-shell singlet | < 0.1 (collapsed to RHF) |
-| S-orthonormality | < 1e-10 | > 1e-8 |
-| Sanity check `O_sanity` | equals `c0` | difference > 1e-5 |
-| Sign of `O_phi`, `O_phi_tilde` | same sign | opposite signs |
-| `norm` | > 0 | < 1e-12 (UHF = RHF) |
+| Rotated PUHF | Construct BS-UHF determinant at $\Theta$, apply Löwdin projection; OSS cancels | Yes, after projection |
+| Hybrid | Directly construct $\cos\Theta\,\|D_\mathrm{CS}\rangle - \sin\Theta\,\|D_\mathrm{HL}\rangle$ | Yes, by construction |
+
+The near-identical overlaps confirm that both routes arrive at the same point on the Bloch sphere. The hybrid is the preferred implementation because it is simpler — two determinant overlap calls, no spin-projection loop, no normalisation denominator — and is an exact $S=0$ eigenstate without requiring Löwdin projection.
 
 ---
 
-## Citation
+### Appendix  — Bloch Sphere and Configuration Space
 
-If you use this code, please cite:
+In the HOMO–LUMO subspace, $|\psi(\Theta)\rangle = \cos\Theta|H\rangle + \sin\Theta|L\rangle$ maps to the Bloch sphere with polar angle $\theta_B = 2\Theta$.
 
-1. Sugisaki, K. *et al.* *ACS Cent. Sci.* **2019**, *5*, 167–175.
-2. Sun, Q. *et al.* *J. Chem. Phys.* **2020**, *153*, 024109. (PySCF)
+| Configuration | $\Theta$ | $n_\mathrm{LUNO} = y$ | $c_\mathrm{DX} = \sin\Theta$ |
+|---|---|---|---|
+| $H^2$ (north pole, closed-shell) | $0°$ | $0$ | $0$ |
+| $H^1L^1$ (equator $\Sigma$, diradicaloid) | $45°$ | $1$ | $1/\sqrt{2}$ |
+
+The equatorial circle $\Sigma$ at $\Theta = 45°$, $n_\mathrm{LUNO} = 1$ is the HOMO–LUMO degeneracy locus. The TOPCT framework shows that symmetry-preserving unitary evolution cannot cross $\Sigma$; the SU(2) rotation provides the path into the antiaromatic sector $\mathcal{C}_-$.
+
+
+
+
+
+---
+
+## References
+
+1. Fukutome, H. *Int. J. Quantum Chem.* **1981**, *20*, 955
+2. Löwdin, P.-O. *Phys. Rev.* **1955**, *97*, 1509
+3. Yamaguchi, K. *et al.* *Chem. Phys. Lett.* **1988**, *143*, 371
+4. Sugisaki, K. *et al.* *ACS Cent. Sci.* **2019**, *5*, 167–175
+5. Sun, Q. *et al.* *J. Chem. Phys.* **2020**, *153*, 024109
+
