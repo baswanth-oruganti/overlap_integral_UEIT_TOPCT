@@ -1,6 +1,6 @@
 # SU(2) Orbital Rotations, Diradical Character, and QPEA Initial State Preparation
 
-**Repository for:** *J. Chem. Theory Comput.* (submitted)
+**Repository for:** *J. Am. Chem. Soc.* (submitted)
 
 The central result: the CASSCF LUNO occupation number directly encodes the optimal SU(2) rotation angle and wavefunction coefficients with no numerical optimisation.
 
